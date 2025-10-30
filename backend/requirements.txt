@@ -1,0 +1,10 @@
+langchain-core
+langchain-classic
+langchain-ollama
+pyttsx3~=2.99
+sounddevice~=0.5.3
+numpy~=2.3.4
+soundfile~=0.13.1
+langchain-community~=0.4.1
+langchain~=1.0.3
+faiss-cpu
