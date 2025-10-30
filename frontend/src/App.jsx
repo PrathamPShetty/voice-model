@@ -13,7 +13,7 @@ export default function App() {
   const { speak, voices } = useSpeechSynthesis();
   const [isSpeaking, setIsSpeaking] = useState(false);
 
-  const BACKEND_URL = "http://63.250.52.72:8000/upload_audio"; // 🔁 change to your backend API
+  const BACKEND_URL = "https://katcon.registration.envisionsit.com/upload_audio"; // 🔁 change to your backend API
 
   // --- 🎵 Visualizer ---
   const drawVisualizer = () => {
