@@ -1,0 +1,51 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: backend
+    ports:
+      - "8000:8000"
+
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - ollama
+    restart: always
+    networks:
+      - internal_net
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    # 🔒 No ports exposed to the host
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: always
+    networks:
+      - internal_net
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 4G
+        reservations:
+          cpus: "0.5"
+          memory: 1G
+
+networks:
+  internal_net:
+    driver: bridge
+
+volumes:
+  ollama_data:
