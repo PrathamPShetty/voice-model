@@ -13,9 +13,9 @@ export default function App() {
   const { speak, voices } = useSpeechSynthesis();
   const [isSpeaking, setIsSpeaking] = useState(false);
 
-  const BACKEND_URL = "http://localhost:8000/upload_audio";
+  const BACKEND_URL = "http://localhost:8000/upload_audio"; // 🔁 change to your backend API
 
-  // --- Google-style Visualizer Setup ---
+  // --- 🎵 Visualizer ---
   const drawVisualizer = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -27,6 +27,7 @@ export default function App() {
     const draw = () => {
       if (!isSpeaking) {
         ctx.clearRect(0, 0, width, height);
+        animationFrameId = requestAnimationFrame(draw);
         return;
       }
 
@@ -57,36 +58,49 @@ export default function App() {
     };
 
     draw();
-
     return () => cancelAnimationFrame(animationFrameId);
   };
 
-  useEffect(() => {
-    if (isSpeaking) {
-      drawVisualizer();
+  // --- 🎙️ Welcome Message ---
+  const starting = () => {
+    if (!isSpeaking && !listening) {
+      const voice = voices.find((v) => v.lang.startsWith("en")) || voices[0];
+      setIsSpeaking(true);
+      speak({
+        text: "Welcome to Envision Junior. If you need any assistance, please tap the microphone button and ask your question.",
+        voice,
+        rate: 1,
+        pitch: 1,
+        onend: () => setIsSpeaking(false),
+      });
     }
+  };
+
+  useEffect(() => {
+    starting();
+  }, []);
+
+  useEffect(() => {
+    starting();
+    if (isSpeaking) drawVisualizer();
   }, [isSpeaking]);
 
-  // --- Request Microphone Permission ---
+  // --- 🔐 Request Mic Permission ---
   const requestPermission = async () => {
     try {
       console.log("Requesting microphone permission...");
-      setConsoleLog("Requesting microphone permission...");
-
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       setPermissionError(false);
-      setConsoleLog("✅ Microphone permission granted");
       stream.getTracks().forEach((track) => track.stop());
       return true;
     } catch (err) {
       console.error("❌ Microphone permission denied:", err);
-      setConsoleLog("❌ Microphone permission denied");
       setPermissionError(true);
       return false;
     }
   };
 
-  // --- Start Recording ---
+  // --- 🎧 Start Recording ---
   const startMic = async () => {
     const permissionGranted = await requestPermission();
     if (!permissionGranted) return;
@@ -112,13 +126,10 @@ export default function App() {
         try {
           const res = await fetch(BACKEND_URL, { method: "POST", body: formData });
           const data = await res.json();
-          console.log("✅ Server response:", data);
 
           if (data.response) {
             setResponseText(data.response);
-         
 
-            // Speak AI response
             const voice = voices.find((v) => v.lang.startsWith("en")) || voices[0];
             setIsSpeaking(true);
             speak({
@@ -126,14 +137,12 @@ export default function App() {
               voice,
               rate: 1,
               pitch: 1,
-              onend: () => {
-                setIsSpeaking(false);
-              },
+              onend: () => setIsSpeaking(false),
             });
           }
         } catch (err) {
           console.error("❌ Upload failed:", err);
-     
+          setResponseText("Sorry, I couldn’t process your question.");
         }
       };
 
@@ -146,7 +155,7 @@ export default function App() {
     }
   };
 
-  // --- Stop Recording ---
+  // --- ⏹️ Stop Recording ---
   const stopMic = () => {
     setListening(false);
     if (mediaRecorderRef.current) {
@@ -160,22 +169,7 @@ export default function App() {
   }, []);
 
   return (
-    <div style={{ backgroundColor: "#000", color: "#fff"}}>
-    <div
-      style={{
-        background: "#000000ff",
-        height: "100vh",
-        width: "100vw",
-        overflow: "hidden",
-        position: "relative",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        flexDirection: "column",
-        color: "white",
-      }}
-    >
-      {/* Google-style Visualizer */}
+    <div style={{ background: "#000", color: "#fff", minHeight: "100vh" }}>
       <canvas
         ref={canvasRef}
         width={window.innerWidth}
@@ -185,50 +179,59 @@ export default function App() {
           top: 0,
           left: 0,
           zIndex: 1,
-          bottom: 0,
-          right: 0,
           background: "#050608",
         }}
       />
 
-      {/* Mic Button */}
-      <button
-        onClick={listening ? stopMic : startMic}
+      {/* 🎤 Mic Button */}
+      <div
         style={{
-          background: listening ? "#ff4b4b" : "#0077ff",
-          border: "none",
-          borderRadius: "50%",
-          width: "80px",
-          height: "80px",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          boxShadow: "0 0 25px rgba(0,0,0,0.3)",
-          cursor: "pointer",
-          transition: "all 0.3s ease",
+          position: "relative",
           zIndex: 10,
+          height: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
         }}
       >
-        {listening ? <MicOff size={36} color="white" /> : <Mic size={36} color="white" />}
-      </button>
-
-     
-
-      {/* Permission Error */}
-      {permissionError && (
-        <p
+        <button
+          onClick={listening ? stopMic : startMic}
           style={{
-            marginTop: "20px",
-            color: "#ff5555",
-            fontSize: "15px",
-            textAlign: "center",
-            maxWidth: "300px",
+            background: listening ? "#ff4b4b" : "#0077ff",
+            border: "none",
+            borderRadius: "50%",
+            width: "90px",
+            height: "90px",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            boxShadow: "0 0 25px rgba(255,255,255,0.2)",
+            cursor: "pointer",
+            transition: "all 0.3s ease",
           }}
         >
-          ⚠️ Please allow microphone access in System Settings → Privacy & Security → Microphone.
-        </p>
-      )}
+          {listening ? <MicOff size={40} color="white" /> : <Mic size={40} color="white" />}
+        </button>
+
+      
+
+        {/* ⚠️ Permission Error */}
+        {permissionError && (
+          <p
+            style={{
+              color: "#ff5555",
+              textAlign: "center",
+              marginTop: "20px",
+            }}
+          >
+            ⚠️ Please allow microphone access in your browser or device settings.
+          </p>
+        )}
+
+        {/* 🧾 Console Log */}
+        {/* <small style={{ color: "#aaa", marginTop: "10px" }}>{consoleLog}</small> */}
+      </div>
     </div>
-        </div>
   );
 }
