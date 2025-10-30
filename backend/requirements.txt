@@ -8,3 +8,6 @@ soundfile~=0.13.1
 langchain-community~=0.4.1
 langchain~=1.0.3
 faiss-cpu
+fastapi
+uvicorn[standard]
+python-multipart
