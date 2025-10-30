@@ -1,164 +1,234 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { Mic, MicOff } from "lucide-react";
+import { useSpeechSynthesis } from "react-speech-kit";
 
 export default function App() {
   const canvasRef = useRef(null);
   const [listening, setListening] = useState(false);
-  const audioContextRef = useRef(null);
-  const analyserRef = useRef(null);
-  const sourceRef = useRef(null);
-  const animationRef = useRef(null);
+  const [permissionError, setPermissionError] = useState(false);
+  const [consoleLog, setConsoleLog] = useState("");
+  const [responseText, setResponseText] = useState("");
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const { speak, voices } = useSpeechSynthesis();
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
-  const startMic = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      const analyser = audioContext.createAnalyser();
-      const source = audioContext.createMediaStreamSource(stream);
-      source.connect(analyser);
-      analyser.fftSize = 256;
+  const BACKEND_URL = "http://localhost:8000/upload_audio";
 
-      audioContextRef.current = audioContext;
-      analyserRef.current = analyser;
-      sourceRef.current = source;
-      setListening(true);
-      animateDots();
-    } catch (err) {
-      console.error("Microphone access denied:", err);
-    }
-  };
-
-  const stopMic = () => {
-    setListening(false);
-    if (sourceRef.current) sourceRef.current.disconnect();
-    if (analyserRef.current) analyserRef.current.disconnect();
-    if (audioContextRef.current) audioContextRef.current.close();
-    cancelAnimationFrame(animationRef.current);
-  };
-
-  const animateDots = () => {
+  // --- Google-style Visualizer Setup ---
+  const drawVisualizer = () => {
     const canvas = canvasRef.current;
+    if (!canvas) return;
     const ctx = canvas.getContext("2d");
-    let WIDTH = (canvas.width = window.innerWidth);
-    let HEIGHT = (canvas.height = window.innerHeight);
-    const centerX = WIDTH / 2;
-    const centerY = HEIGHT / 2;
+    const width = canvas.width;
+    const height = canvas.height;
+    let animationFrameId;
 
-    const totalDots = 25;
-    const dots = Array.from({ length: totalDots }, (_, i) => ({
-      angle: (i / totalDots) * Math.PI * 2,
-      baseRadius: 50 + Math.random() * 40,
-      size: 3 + Math.random() * 5,
-      hue: 200 + Math.random() * 160,
-      speed: 0.6 + Math.random() * 1.0,
-      orbitOffset: Math.random() * Math.PI * 2,
-    }));
+    const draw = () => {
+      if (!isSpeaking) {
+        ctx.clearRect(0, 0, width, height);
+        return;
+      }
 
-    const analyser = analyserRef.current;
+      ctx.clearRect(0, 0, width, height);
+      const dots = 24;
+      const cx = width / 2;
+      const cy = height / 2;
+      const baseRadius = Math.min(width, height) * 0.18;
 
-    const render = () => {
-      const dataArray = new Uint8Array(analyser.frequencyBinCount);
-      analyser.getByteFrequencyData(dataArray);
-      const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-      const beat = avg / 3.5;
-
-      ctx.clearRect(0, 0, WIDTH, HEIGHT);
-      ctx.fillStyle = "white";
-      ctx.fillRect(0, 0, WIDTH, HEIGHT);
-
-      dots.forEach((dot) => {
-        dot.angle += 0.008 * dot.speed;
-        const radius =
-          dot.baseRadius + Math.sin(Date.now() / 300 + dot.orbitOffset) * 10 + beat * 1.3;
-        const x = centerX + Math.cos(dot.angle) * radius;
-        const y = centerY + Math.sin(dot.angle) * radius;
-
-        const color = `hsl(${dot.hue + beat * 2}, 90%, 45%)`;
+      for (let i = 0; i < dots; i++) {
+        const angle = (i / dots) * Math.PI * 2;
+        const pulse = Math.sin(Date.now() / 200 + i * 0.4) * 0.25 + 0.75;
+        const r = baseRadius * (1 + pulse * 0.4);
+        const x = cx + Math.cos(angle) * r;
+        const y = cy + Math.sin(angle) * r;
+        const hue = (i * (360 / dots) + Date.now() / 20) % 360;
+        const size = 6 + pulse * 10;
 
         ctx.beginPath();
-        ctx.arc(x, y, dot.size + beat / 15, 0, Math.PI * 2);
-        ctx.fillStyle = color;
-        ctx.shadowBlur = 20 + beat / 2;
-        ctx.shadowColor = color;
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fillStyle = `hsl(${hue}, 90%, 60%)`;
+        ctx.shadowBlur = 30;
+        ctx.shadowColor = `hsl(${hue}, 90%, 60%)`;
         ctx.fill();
-      });
+      }
 
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, 50 + beat * 0.8, 0, Math.PI * 2);
-      ctx.strokeStyle = `rgba(66,133,244,${0.25 + beat / 120})`;
-      ctx.lineWidth = 2 + beat / 10;
-      ctx.stroke();
-
-      animationRef.current = requestAnimationFrame(render);
+      animationFrameId = requestAnimationFrame(draw);
     };
 
-    render();
+    draw();
+
+    return () => cancelAnimationFrame(animationFrameId);
   };
 
   useEffect(() => {
-    return () => cancelAnimationFrame(animationRef.current);
+    if (isSpeaking) {
+      drawVisualizer();
+    }
+  }, [isSpeaking]);
+
+  // --- Request Microphone Permission ---
+  const requestPermission = async () => {
+    try {
+      console.log("Requesting microphone permission...");
+      setConsoleLog("Requesting microphone permission...");
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      setPermissionError(false);
+      setConsoleLog("✅ Microphone permission granted");
+      stream.getTracks().forEach((track) => track.stop());
+      return true;
+    } catch (err) {
+      console.error("❌ Microphone permission denied:", err);
+      setConsoleLog("❌ Microphone permission denied");
+      setPermissionError(true);
+      return false;
+    }
+  };
+
+  // --- Start Recording ---
+  const startMic = async () => {
+    const permissionGranted = await requestPermission();
+    if (!permissionGranted) return;
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      setListening(true);
+
+      const mediaRecorder = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        const formData = new FormData();
+        formData.append("file", blob, "recording.webm");
+
+        setConsoleLog("🎙️ Sending audio to backend...");
+
+        try {
+          const res = await fetch(BACKEND_URL, { method: "POST", body: formData });
+          const data = await res.json();
+          console.log("✅ Server response:", data);
+
+          if (data.response) {
+            setResponseText(data.response);
+         
+
+            // Speak AI response
+            const voice = voices.find((v) => v.lang.startsWith("en")) || voices[0];
+            setIsSpeaking(true);
+            speak({
+              text: data.response,
+              voice,
+              rate: 1,
+              pitch: 1,
+              onend: () => {
+                setIsSpeaking(false);
+              },
+            });
+          }
+        } catch (err) {
+          console.error("❌ Upload failed:", err);
+     
+        }
+      };
+
+      mediaRecorder.start();
+      mediaRecorderRef.current = mediaRecorder;
+      setConsoleLog("🎧 Recording started...");
+    } catch (err) {
+      console.error("❌ Error starting microphone:", err);
+      setConsoleLog("❌ Error starting microphone");
+    }
+  };
+
+  // --- Stop Recording ---
+  const stopMic = () => {
+    setListening(false);
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+      setConsoleLog("⏹️ Recording stopped");
+    }
+  };
+
+  useEffect(() => {
+    requestPermission();
   }, []);
 
-return (
-  <div
-    style={{
-      background: "white",
-      height: "100vh",
-      width: "100vw",
-      overflow: "hidden",
-      position: "relative", // important for perfect centering
-    }}
-  >
-    {/* Animated dots canvas */}
-    <canvas
-      ref={canvasRef}
-      width={window.innerWidth}
-      height={window.innerHeight}
-      style={{
-        position: "absolute",
-        top: 0,
-        left: 0,
-        background: "white",
-      }}
-    />
-
-    {/* Centered mic container */}
+  return (
+    <div style={{ backgroundColor: "#000", color: "#fff"}}>
     <div
       style={{
-        position: "absolute",
-        top: "50%",
-        left: "50%",
-        transform: "translate(-50%, -50%)", // perfect center
-        zIndex: 2,
+        background: "#000000ff",
+        height: "100vh",
+        width: "100vw",
+        overflow: "hidden",
+        position: "relative",
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
+        flexDirection: "column",
+        color: "white",
       }}
     >
+      {/* Google-style Visualizer */}
+      <canvas
+        ref={canvasRef}
+        width={window.innerWidth}
+        height={window.innerHeight}
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          zIndex: 1,
+          bottom: 0,
+          right: 0,
+          background: "#050608",
+        }}
+      />
+
+      {/* Mic Button */}
       <button
         onClick={listening ? stopMic : startMic}
         style={{
-          background: listening ? "#ff4b4b" : "#4285F4",
+          background: listening ? "#ff4b4b" : "#0077ff",
           border: "none",
           borderRadius: "50%",
-          width: "65px",
-          height: "65px",
+          width: "80px",
+          height: "80px",
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
-          boxShadow: "0 6px 20px rgba(0,0,0,0.2)",
+          boxShadow: "0 0 25px rgba(0,0,0,0.3)",
           cursor: "pointer",
           transition: "all 0.3s ease",
+          zIndex: 10,
         }}
       >
-        {listening ? (
-          <MicOff size={32} color="white" />
-        ) : (
-          <Mic size={32} color="white" />
-        )}
+        {listening ? <MicOff size={36} color="white" /> : <Mic size={36} color="white" />}
       </button>
-    </div>
-  </div>
-);
 
+     
+
+      {/* Permission Error */}
+      {permissionError && (
+        <p
+          style={{
+            marginTop: "20px",
+            color: "#ff5555",
+            fontSize: "15px",
+            textAlign: "center",
+            maxWidth: "300px",
+          }}
+        >
+          ⚠️ Please allow microphone access in System Settings → Privacy & Security → Microphone.
+        </p>
+      )}
+    </div>
+        </div>
+  );
 }
