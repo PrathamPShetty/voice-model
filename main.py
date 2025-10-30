@@ -165,12 +165,12 @@ async def upload_audio(file: UploadFile = File(...)):
         query = result["text"].strip()
         print(f"🎙️ User said: {query}")
 
-        query = qa2.invoke({
-    "context": "",
-    "question": query
-})['text']
+#         query = qa2.invoke({
+#          "context": "",
+#             "question": query
+# })['text']
 
-        
+        # print(f"📝 Corrected Query: {query}")
         response = qa.invoke({
     "context": SIT_CONTEXT_TEXT,  # full paragraph you included
     "question": query
