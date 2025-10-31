@@ -12,12 +12,16 @@ from langchain_ollama import OllamaLLM
 # === FastAPI setup ===
 app = FastAPI()
 
+
+orgins = [
+    "https://katcon.registration.envisionsit.com",
+    "https://kitcon.backend.envisionsit.com",
+    "http://katcon.registration.envisionsit.com"
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://katcon.registration.envisionsit.com",
-        "https://kitcon.backend.envisionsit.com",
-        "http://katcon.registration.envisionsit.com"
-        ], 
+    allow_origins=orgins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
