@@ -121,7 +121,7 @@ const BACKEND_URL = "http://backend:8000/upload_audio"; // 🔁 change to your b
         const formData = new FormData();
         formData.append("file", blob, "recording.webm");
 
-        setConsoleLog("🎙️ Sending audio to backend...");
+        console.log("🎙️ Sending audio to backend...");
 
         try {
           const res = await fetch(BACKEND_URL, { method: "POST", body: formData });
@@ -142,7 +142,7 @@ const BACKEND_URL = "http://backend:8000/upload_audio"; // 🔁 change to your b
           }
         } catch (err) {
           console.error("❌ Upload failed:", err);
-          setResponseText("Sorry, I couldn’t process your question.");
+          console.log("Sorry, I couldn’t process your question.");
         }
       };
 

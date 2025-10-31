@@ -9,8 +9,13 @@ from langchain_core.prompts import PromptTemplate
 from langchain_classic.chains import LLMChain
 from langchain_ollama import OllamaLLM
 
+import logging
+
 # === FastAPI setup ===
 app = FastAPI()
+
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 
 orgins = [
@@ -151,6 +156,7 @@ Department of Artificial Intelligence and Machine Learning
 # === FastAPI route for voice input ===
 @app.post("/upload_audio")
 async def upload_audio(file: UploadFile = File(...)):
+    logger.info("Received audio file upload")
     try:
         # Step 1: Save uploaded audio temporarily
         with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as temp_webm:
@@ -173,12 +179,11 @@ async def upload_audio(file: UploadFile = File(...)):
         query = result["text"].strip()
         print(f"🎙️ User said: {query}")
 
-#         query = qa2.invoke({
-#          "context": "",
-#             "question": query
-# })['text']
+        logger.debug(f"User query: {query}")
 
-        # print(f"📝 Corrected Query: {query}")
+
+
+
         response = qa.invoke({
     "context": SIT_CONTEXT_TEXT,  # full paragraph you included
     "question": query
@@ -186,6 +191,7 @@ async def upload_audio(file: UploadFile = File(...)):
         response = response['text']
        
         print(f"🧠 Model (RAG) Response: {response}")
+        logger.debug(f"RAG response: {response}")
 
         # Fallback: If no relevant context found, answer generally
         if "don't know" in response.lower() or "not sure" in response.lower() or "cannot answer" in response.lower() or len(response.strip()) == 0 or "I'm not aware" in response.lower():
