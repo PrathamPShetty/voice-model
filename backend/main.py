@@ -14,7 +14,10 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # change to your frontend URL in production
+    allow_origins=["https://katcon.registration.envisionsit.com",
+        "https://kitcon.backend.envisionsit.com",
+        "http://katcon.registration.envisionsit.com"
+        ], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
