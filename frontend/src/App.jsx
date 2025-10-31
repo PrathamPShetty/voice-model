@@ -13,8 +13,8 @@ export default function App() {
   const { speak, voices } = useSpeechSynthesis();
   const [isSpeaking, setIsSpeaking] = useState(false);
 
-  // const BACKEND_URL = "https://katcon.registration.envisionsit.com/upload_audio"; // 🔁 change to your backend API
-const BACKEND_URL = "http://backend:8000/upload_audio"; // 🔁 change to your backend API
+  const BACKEND_URL = "http://172.16.3.154:8000/upload_audio";
+
   // --- 🎵 Visualizer ---
   const drawVisualizer = () => {
     const canvas = canvasRef.current;
@@ -25,12 +25,6 @@ const BACKEND_URL = "http://backend:8000/upload_audio"; // 🔁 change to your b
     let animationFrameId;
 
     const draw = () => {
-      if (!isSpeaking) {
-        ctx.clearRect(0, 0, width, height);
-        animationFrameId = requestAnimationFrame(draw);
-        return;
-      }
-
       ctx.clearRect(0, 0, width, height);
       const dots = 24;
       const cx = width / 2;
@@ -61,99 +55,58 @@ const BACKEND_URL = "http://backend:8000/upload_audio"; // 🔁 change to your b
     return () => cancelAnimationFrame(animationFrameId);
   };
 
-  // --- 🎙️ Welcome Message ---
-  const starting = () => {
-    if (!isSpeaking && !listening) {
-      const voice = voices.find((v) => v.lang.startsWith("en")) || voices[0];
-      setIsSpeaking(true);
-      speak({
-        text: "Welcome to Envision Junior. If you need any assistance, please tap the microphone button and ask your question.",
-        voice,
-        rate: 1,
-        pitch: 1,
-        onend: () => setIsSpeaking(false),
-      });
-    }
-  };
-
   useEffect(() => {
-    starting();
-  }, []);
-
-  useEffect(() => {
-    starting();
     if (isSpeaking) drawVisualizer();
   }, [isSpeaking]);
 
-  // --- 🔐 Request Mic Permission ---
+  // --- 🎙️ Request mic permission ---
   const requestPermission = async () => {
     try {
-      console.log("Requesting microphone permission...");
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      await navigator.mediaDevices.getUserMedia({ audio: true });
       setPermissionError(false);
-      stream.getTracks().forEach((track) => track.stop());
-      return true;
     } catch (err) {
-      console.error("❌ Microphone permission denied:", err);
+      console.error("Mic permission denied:", err);
       setPermissionError(true);
-      return false;
     }
   };
 
-  // --- 🎧 Start Recording ---
-  const startMic = async () => {
-    const permissionGranted = await requestPermission();
-    if (!permissionGranted) return;
+  // --- 🎤 Start Recording ---
+const startMic = async () => {
+  setListening(true);
+  setConsoleLog("🎙️ Listening...");
 
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      setListening(true);
+  try {
+    // 🔹 Call your backend (no audio sent)
+    const res = await fetch(BACKEND_URL, { method: "POST" });
+    const data = await res.json();
 
-      const mediaRecorder = new MediaRecorder(stream);
-      audioChunksRef.current = [];
+    console.log("✅ Backend response received:", data);
 
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) audioChunksRef.current.push(event.data);
-      };
+    if (data.response) {
+      const voice = voices.find((v) => v.lang.startsWith("en")) || voices[0];
+      setIsSpeaking(true);
 
-      mediaRecorder.onstop = async () => {
-        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-        const formData = new FormData();
-        formData.append("file", blob, "recording.webm");
+      speak({
+        text: data.response,
+        voice,
+        rate: 1,
+        pitch: 1,
+        onend: () => {
+          setIsSpeaking(false);
+          setListening(false);
+        },
+      });
 
-        console.log("🎙️ Sending audio to backend...");
-
-        try {
-          const res = await fetch(BACKEND_URL, { method: "POST", body: formData });
-          const data = await res.json();
-
-          if (data.response) {
-            setResponseText(data.response);
-
-            const voice = voices.find((v) => v.lang.startsWith("en")) || voices[0];
-            setIsSpeaking(true);
-            speak({
-              text: data.response,
-              voice,
-              rate: 1,
-              pitch: 1,
-              onend: () => setIsSpeaking(false),
-            });
-          }
-        } catch (err) {
-          console.error("❌ Upload failed:", err);
-          console.log("Sorry, I couldn’t process your question.");
-        }
-      };
-
-      mediaRecorder.start();
-      mediaRecorderRef.current = mediaRecorder;
-      setConsoleLog("🎧 Recording started...");
-    } catch (err) {
-      console.error("❌ Error starting microphone:", err);
-      setConsoleLog("❌ Error starting microphone");
+      setResponseText(data.response);
+    } else {
+      setConsoleLog("⚠️ No response from backend.");
     }
-  };
+  } catch (err) {
+    console.error("❌ Upload failed:", err);
+    setConsoleLog("❌ Failed to contact backend.");
+  }
+};
+
 
   // --- ⏹️ Stop Recording ---
   const stopMic = () => {
@@ -214,23 +167,7 @@ const BACKEND_URL = "http://backend:8000/upload_audio"; // 🔁 change to your b
           {listening ? <MicOff size={40} color="white" /> : <Mic size={40} color="white" />}
         </button>
 
-      
-
-        {/* ⚠️ Permission Error */}
-        {permissionError && (
-          <p
-            style={{
-              color: "#ff5555",
-              textAlign: "center",
-              marginTop: "20px",
-            }}
-          >
-            ⚠️ Please allow microphone access in your browser or device settings.
-          </p>
-        )}
-
-        {/* 🧾 Console Log */}
-        {/* <small style={{ color: "#aaa", marginTop: "10px" }}>{consoleLog}</small> */}
+  
       </div>
     </div>
   );

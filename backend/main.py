@@ -19,10 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 orgins = [
-    "https://katcon.registration.envisionsit.com",
-    "https://kitcon.backend.envisionsit.com",
-    "http://katcon.registration.envisionsit.com",
-    "http:localhost:3000",
+    "*"
 ]
 
 app.add_middleware(
@@ -44,7 +41,9 @@ llm = OllamaLLM(model="llama3.2:3b", base_url="http://localhost:11434")
 # === Define custom prompt ===
 template = """
 You are Envision Junior, a voice assistant for Srinivas Institute of Technology (SIT).
-Answer questions using the provided context accurately and politely.
+Answer questions using the provided context accurately and politely. 
+Answer in a concise manner.
+Answer in One sentences maximum.
 If the question is unrelated to SIT or its departments, reply as a general AI assistant.
 
 
@@ -155,29 +154,31 @@ Department of Artificial Intelligence and Machine Learning
 
 # === FastAPI route for voice input ===
 @app.post("/upload_audio")
-async def upload_audio(file: UploadFile = File(...)):
+async def upload_audio():
     logger.info("Received audio file upload")
     try:
         # Step 1: Save uploaded audio temporarily
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as temp_webm:
-            temp_webm.write(await file.read())
-            temp_webm_path = temp_webm.name
+        # with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as temp_webm:
+        #     temp_webm.write(await file.read())
+        #     temp_webm_path = temp_webm.name
 
-        # Step 2: Convert .webm → .wav using ffmpeg
-        wav_path = temp_webm_path.replace(".webm", ".wav")
-        command = [
-            "ffmpeg", "-y",
-            "-i", temp_webm_path,
-            "-ar", "16000",  # sample rate
-            "-ac", "1",      # mono
-            wav_path
-        ]
-        subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+        # # Step 2: Convert .webm → .wav using ffmpeg
+        # wav_path = temp_webm_path.replace(".webm", ".wav")
+        # command = [
+        #     "ffmpeg", "-y",
+        #     "-i", temp_webm_path,
+        #     "-ar", "16000",  # sample rate
+        #     "-ac", "1",      # mono
+        #     wav_path
+        # ]
+        # subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
 
-        # Step 3: Transcribe audio using Whisper
-        result = stt_model.transcribe(wav_path)
-        query = result["text"].strip()
-        print(f"🎙️ User said: {query}")
+        # # Step 3: Transcribe audio using Whisper
+        # result = stt_model.transcribe(wav_path)
+        # query = result["text"].strip()
+        # print(f"🎙️ User said: {query}")
+
+        query = "Tell me about Srinivas Institute of Technology."
 
         logger.debug(f"User query: {query}")
 
@@ -194,12 +195,12 @@ async def upload_audio(file: UploadFile = File(...)):
         logger.debug(f"RAG response: {response}")
 
         # Fallback: If no relevant context found, answer generally
-        if "don't know" in response.lower() or "not sure" in response.lower() or "cannot answer" in response.lower() or len(response.strip()) == 0 or "I'm not aware" in response.lower():
-            response = llm.invoke(query+SIT_CONTEXT_TEXT)
+        # if "don't know" in response.lower() or "not sure" in response.lower() or "cannot answer" in response.lower() or len(response.strip()) == 0 or "I'm not aware" in response.lower():
+        #     response = llm.invoke(query+SIT_CONTEXT_TEXT)
 
         # Step 5: Clean up temporary files
-        os.remove(temp_webm_path)
-        os.remove(wav_path)
+        # os.remove(temp_webm_path)
+        # os.remove(wav_path)
 
         # Step 6: Send back response
         return {"query": query, "response": response}
