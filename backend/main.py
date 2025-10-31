@@ -16,7 +16,8 @@ app = FastAPI()
 orgins = [
     "https://katcon.registration.envisionsit.com",
     "https://kitcon.backend.envisionsit.com",
-    "http://katcon.registration.envisionsit.com"
+    "http://katcon.registration.envisionsit.com",
+    "http:localhost:3000",
 ]
 
 app.add_middleware(
