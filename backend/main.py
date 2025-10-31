@@ -18,8 +18,11 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %
 logger = logging.getLogger(__name__)
 
 
-orgins = [
-    "*"
+origins = [
+    "https://katcon.registration.envisionsit.com",
+    "https://kitcon.backend.envisionsit.com",
+    "http://katcon.registration.envisionsit.com",
+    "http://localhost:3000",
 ]
 
 app.add_middleware(
@@ -36,7 +39,10 @@ stt_model = whisper.load_model("base")
 
 # === Load Ollama model ===
 print("🧠 Loading Ollama model...")
-llm = OllamaLLM(model="llama3.2:3b", base_url="http://localhost:11434")
+print("🧠 Loading Gemini model...")
+genai.configure(api_key="AIzaSyBIlOA9cFfKvA9wnwRmUtDgoiD_8AxNHUc"))  # <-- set your API key in environment
+
+gemini_model = genai.GenerativeModel("gemini-1.5-flash")
 
 # === Define custom prompt ===
 template = """
@@ -88,6 +94,20 @@ prompt2 = PromptTemplate(template=template2, input_variables=["context", "questi
 
 qa = LLMChain(llm=llm, prompt=prompt)
 qa2 = LLMChain(llm=llm, prompt=prompt2)
+
+
+def ask_gemini(question: str, context: str, mode: str = "qa"):
+    try:
+        if mode == "qa":
+            prompt = template.format(context=context, question=question)
+        else:
+            prompt = template2.format(context=context, question=question)
+
+        response = gemini_model.generate_content(prompt)
+        return response.text.strip() if response.text else "Sorry, I couldn’t generate a response."
+    except Exception as e:
+        logger.error(f"Gemini API error: {e}")
+        return "Error generating response with Gemini."
 
 
 
@@ -184,11 +204,11 @@ async def upload_audio():
 
 
 
-
-        response = qa.invoke({
-    "context": SIT_CONTEXT_TEXT,  # full paragraph you included
-    "question": query
-})
+        response =ask_gemini(query, SIT_CONTEXT_TEXT, mode="qa")
+#         response = qa.invoke({
+#     "context": SIT_CONTEXT_TEXT,  # full paragraph you included
+#     "question": query
+# })
         response = response['text']
        
         print(f"🧠 Model (RAG) Response: {response}")
