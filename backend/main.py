@@ -40,7 +40,7 @@ stt_model = whisper.load_model("base")
 # === Load Ollama model ===
 print("🧠 Loading Ollama model...")
 print("🧠 Loading Gemini model...")
-genai.configure(api_key="AIzaSyBIlOA9cFfKvA9wnwRmUtDgoiD_8AxNHUc"))  # <-- set your API key in environment
+genai.configure(api_key="AIzaSyBIlOA9cFfKvA9wnwRmUtDgoiD_8AxNHUc")  # <-- set your API key in environment
 
 gemini_model = genai.GenerativeModel("gemini-1.5-flash")
 
